@@ -406,6 +406,12 @@ def build_parser():
     mp.add_argument("--max-seconds", type=int, default=None, help="cap for hold mode")
     mp.add_argument("--device", type=int, default=None, help="microphone device_index (optional)")
     mp.add_argument("--first-lang", default="en-US", help="Assuming language (default en-US)")
+    mp.add_argument("--debug", action="store_true", help="print debug info")
+    mp.add_argument(
+        "--auto-locales",
+        default="en-US,zh-CN,zh-TW,es-ES,ja-JP,fr-FR",
+        help="comma-separated STT locales to probe when --src auto"
+    )
     mp.set_defaults(func=cmd_mic)
 
     return p
