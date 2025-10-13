@@ -17,6 +17,7 @@ dist/
 pip-wheel-metadata/
 *.manifest
 *.spec
+argos-data/*
 
 # --- Virtual environments ---
 venv/
