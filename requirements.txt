@@ -1,0 +1,5 @@
+vosk
+sounddevice
+argostranslate
+pyttsx3
+ffmpeg-python

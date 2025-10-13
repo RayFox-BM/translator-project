@@ -1,0 +1,132 @@
+# ===============================
+#  PYTHON / RASPBERRY PI PROJECT
+# ===============================
+
+# --- Python build / runtime ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+*.manifest
+*.spec
+
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+Scripts/
+Lib/
+Include/
+pyvenv.cfg
+
+# --- Model data (large files) ---
+models/
+*.model
+*.onnx
+*.bin
+*.h5
+*.ckpt
+*.pth
+*.pt
+
+# --- Audio / Speech temp files ---
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.log
+*.tmp
+*.cache
+*.bak
+
+# --- FFmpeg intermediate outputs ---
+output.mp4
+output.wav
+output.aac
+
+# --- IDE / Editor junk ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- OS-generated files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+Icon?
+$RECYCLE.BIN/
+
+# --- Logs and local configs ---
+*.log
+*.ini
+*.cfg
+*.yaml
+*.yml
+*.json
+*.lock
+*.db
+*.sqlite3
+
+# --- Temporary or runtime folders ---
+tmp/
+temp/
+__temp__/
+.cache/
+.logs/
+test-results/
+uploads/
+downloads/
+recordings/
+transcripts/
+
+# --- Jupyter / Notebooks ---
+.ipynb_checkpoints/
+*.ipynb
+
+# --- VS Code dev containers / SSH cache ---
+.vscode-server/
+.vscode-test/
+.history/
+.settings/
+
+# --- Windows / Python crash dumps ---
+*.stackdump
+*.dmp
+
+# --- Git-specific ---
+*.orig
+*.rej
+*.swp
+*.swo
+*.swm
+
+# --- Environment / secrets ---
+.env
+.env.local
+.env.*
+.envrc
+*.pem
+*.crt
+*.key
+credentials.json
+auth.json
+
+# --- Node (if you add frontend later) ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
