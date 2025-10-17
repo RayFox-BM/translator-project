@@ -142,11 +142,7 @@ _VOSK_MODELS: dict[str, VoskModel] = {}
 
 def load_vosk_model(lang_code: str, model_dir_map: dict[str, str]) -> Optional[VoskModel]:
     """
-    lang_code: 'zh', 'en', etc.
-    model_dir_map: e.g., {
-        'zh': '/home/pi/vosk-models/vosk-model-small-zh-cn-0.22',
-        'en': '/home/pi/vosk-models/vosk-model-small-en-us-0.15'
-    }
+    lang_code: 'zh', 'ja', 'en', etc.
     """
     if not _VOSK_AVAILABLE:
         return None
@@ -159,111 +155,152 @@ def load_vosk_model(lang_code: str, model_dir_map: dict[str, str]) -> Optional[V
     _VOSK_MODELS[lang_code] = model
     return model
 
-CJK_RANGE = r"\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF"  # basic + ext A + compatibility
+
+# -------------------- CJK helpers (Kanji + Kana) --------------------
+CJK_KANJI_RANGE = r"\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF"      # Han/Kanji
+JPN_KANA_RANGE  = r"\u3040-\u309F\u30A0-\u30FF\u31F0-\u31FF"      # Hiragana/Katakana (+ ext)
+CJK_RANGE       = CJK_KANJI_RANGE + JPN_KANA_RANGE
 
 def _looks_cjk(text: str) -> bool:
     return bool(re.search(fr"[{CJK_RANGE}]", text))
 
+def cjk_ratio(text: str) -> float:
+    cjk = re.findall(fr"[{CJK_RANGE}]", text)
+    return (len(cjk) / max(1, len(text))) if text else 0.0
+
+def kana_ratio(text: str) -> float:
+    kana = re.findall(fr"[{JPN_KANA_RANGE}]", text)
+    return (len(kana) / max(1, len(text))) if text else 0.0
+
+def compact_cjk(text: str) -> str:
+    # remove spaces between consecutive CJK chars (Kanji + Kana)
+    text = re.sub(fr"(?<=[{CJK_RANGE}])\s+(?=[{CJK_RANGE}])", "", text)
+    # tidy spaces around common CJK punctuation and JP quotes
+    text = re.sub(r"\s+([，。！？、“”‘’：；「」『』])", r"\1", text)
+    text = re.sub(r"([，。！？、“”‘’：；「」『』])\s+", r"\1", text)
+    return text
+
+
 def _avg_conf_from_result_json(j: dict) -> float:
-    # Vosk sometimes returns 'result': [{'word': '...', 'conf': 0.9}, ...]
     words = j.get("result") or []
     confs = [w.get("conf") for w in words if isinstance(w.get("conf"), (float, int))]
     return mean(confs) if confs else 0.0
+
 
 def _stream_decode_with_model(pcm16: bytes, model, sr_hz: int = 16000) -> tuple[str, float, dict]:
     rec = KaldiRecognizer(model, sr_hz)
     rec.SetWords(True)
 
-    # ~0.2s chunks
-    CHUNK_BYTES = 6400
+    CHUNK_BYTES = 6400  # ~0.2s at 16kHz
     text_parts = []
-    last_json = {}
     for i in range(0, len(pcm16), CHUNK_BYTES):
         chunk = pcm16[i:i+CHUNK_BYTES]
         if rec.AcceptWaveform(chunk):
-            last_json = json.loads(rec.Result())
-            seg = (last_json.get("text") or "").strip()
+            j = json.loads(rec.Result())
+            seg = (j.get("text") or "").strip()
             if seg:
                 text_parts.append(seg)
         else:
-            partial = json.loads(rec.PartialResult())
-            seg = (partial.get("partial") or "").strip()
-            # we don't append partials (can be noisy); rely on full + final
+            _ = json.loads(rec.PartialResult())  # ignore partial text
 
-    final_json = json.loads(rec.FinalResult())
-    final_text = (final_json.get("text") or "").strip()
+    jfinal = json.loads(rec.FinalResult())
+    final_text = (jfinal.get("text") or "").strip()
     if final_text:
         text_parts.append(final_text)
 
     full_text = " ".join(t for t in text_parts if t).strip()
-    avg_conf = _avg_conf_from_result_json(final_json)
-    return full_text, avg_conf, final_json
+    avg_conf = _avg_conf_from_result_json(jfinal)
+    return full_text, avg_conf, jfinal
 
 
 def stt_vosk_auto(audio: sr.AudioData,
-                  model_map: dict[str, str]) -> tuple[str, str | None]:
+                  model_map: dict[str, str],
+                  debug: bool = False) -> tuple[str, str | None]:
     """
-    Try all provided models (keys like 'zh','en', etc.) and pick the best.
+    Try all provided models and pick the best by confidence + language/script fit.
     Returns (text, lang_key) or ("", None).
     """
     if not _VOSK_AVAILABLE:
         return "", None
 
     pcm16 = audio.get_raw_data(convert_rate=16000, convert_width=2)
-    sr_hz = 16000
 
     candidates = []
-    for lang_key, path in model_map.items():
+    for lang_key, _ in model_map.items():
         model = load_vosk_model(lang_key, model_map)
         if not model:
             continue
 
-        text, avg_conf, jfinal = _stream_decode_with_model(pcm16, model, sr_hz)
+        text, avg_conf, _ = _stream_decode_with_model(pcm16, model, 16000)
         if not text:
             continue
 
-        # Heuristics
-        guessed = detect_lang_code(text) or ""
+        guessed   = (detect_lang_code(text) or "")
         looks_cjk = _looks_cjk(text)
+        ratio     = cjk_ratio(text)
         is_cjk_lang = lang_key in {"zh", "yue", "ja", "ko"}
-        length_score = min(len(text), 200) / 200.0  # cap influence
-        conf_score = avg_conf  # 0..1 typically
 
-        match_bonus = 0.0
+        length_score = min(len(text), 200) / 200.0
+        conf_score   = max(0.0, min(1.0, float(avg_conf)))
+
+        # HARD GUARD: demote Chinese when decoded text isn't actually CJK-ish
+        zh_penalty = 1.0 if (lang_key in {"zh", "yue"} and ratio < 0.20) else 0.0
+
+        match_bonus  = 0.0
         if guessed:
-            # lingua returns 2-letter code
             if lang_key.startswith(guessed):
-                match_bonus += 0.6
-            # extra: zh/yue both map to 'zh' in lingua; treat zh≈yue
+                match_bonus += 0.9
             if guessed == "zh" and lang_key in {"zh", "yue"}:
                 match_bonus += 0.2
 
-        script_bonus = 0.3 if (looks_cjk and is_cjk_lang) or ((not looks_cjk) and (lang_key == "en")) else 0.0
+        script_bonus = 0.4 if (looks_cjk and is_cjk_lang) or ((not looks_cjk) and (lang_key == "en")) else 0.0
 
-        score = (0.5 * length_score) + (0.3 * conf_score) + match_bonus + script_bonus
+        score = (0.6 * conf_score) + (0.15 * length_score) + match_bonus + script_bonus - zh_penalty
 
         candidates.append({
             "lang": lang_key,
             "text": text,
             "score": score,
-            "avg_conf": avg_conf,
+            "conf": conf_score,
+            "len": len(text),
             "looks_cjk": looks_cjk,
+            "ratio_cjk": ratio,
             "guessed": guessed,
         })
 
     if not candidates:
         return "", None
 
+    if debug:
+        print("[stt_vosk_auto] candidates:")
+        for c in candidates:
+            print(f"  - {c['lang']}: score={c['score']:.3f} conf={c['conf']:.3f} len={c['len']} "
+                  f"cjk={c['ratio_cjk']:.2f} looks_cjk={c['looks_cjk']} guessed={c['guessed']}")
+
     best = max(candidates, key=lambda c: c["score"])
+    if debug:
+        print(f"[stt_vosk_auto] picked: {best['lang']}")
     return best["text"], best["lang"]
 
-def compact_cjk(text: str) -> str:
-    # remove spaces between consecutive CJK chars
-    text = re.sub(fr"(?<=[{CJK_RANGE}])\s+(?=[{CJK_RANGE}])", "", text)
-    # also tidy spaces around CJK punctuation
-    text = re.sub(r"\s+([，。！？、“”‘’：；])", r"\1", text)
-    text = re.sub(r"([，。！？、“”‘’：；])\s+", r"\1", text)
-    return text
+
+def normalize_src_for_argos(code: str, picked_lang: Optional[str]) -> str:
+    """
+    Map guessed/picked language into Argos codes:
+    - yue -> zh
+    - zh* -> zh
+    - ja  -> ja
+    """
+    code = (code or "").lower()
+    picked = (picked_lang or "").lower()
+
+    if picked in {"yue"} or code.startswith("yue"):
+        return "zh"
+    if code.startswith("zh") or picked in {"zh"}:
+        return "zh"
+    if code.startswith("ja") or picked in {"ja"}:
+        return "ja"
+    return code or "en"
+
 
 # -------------------- Mouse/Keyboard controller (pynput) --------------------
 class InputController:
@@ -300,7 +337,6 @@ class InputController:
         if self._key_listener:
             self._key_listener.stop()
 
-    # ---- callbacks ----
     def _on_click(self, x, y, button, pressed):
         try:
             from pynput.mouse import Button
@@ -322,7 +358,6 @@ class InputController:
         except Exception:
             pass
 
-    # ---- state accessors ----
     def is_holding(self) -> bool:
         with self._lock:
             return self._holding
@@ -394,7 +429,6 @@ def recognize_speech_hold(
 
         audio = sr.AudioData(raw, source.SAMPLE_RATE, source.SAMPLE_WIDTH)
 
-    # Return raw audio for offline STT
     return audio
 
 
@@ -408,7 +442,7 @@ def record_test():
         return
 
     recognizer = sr.Recognizer()
-    mic = sr.Microphone()
+    mic = sr.Microphone()  # set device_index=... if needed
 
     input_ctrl = InputController(use_mouse=True, use_keyboard=True)
     input_ctrl.start()
@@ -418,6 +452,7 @@ def record_test():
 
     # Model folders relative to project root (adjust if your names differ)
     vosk_model_dirs = {
+        "ja": str(PROJECT_ROOT / "vosk-models" / "vosk-model-small-ja-0.22"),
         "zh": str(PROJECT_ROOT / "vosk-models" / "vosk-model-small-cn-0.22"),
         "en": str(PROJECT_ROOT / "vosk-models" / "vosk-model-small-en-us-0.15"),
         # "yue": str(PROJECT_ROOT / "vosk-models" / "vosk-model-small-yue-<ver>"),  # optional Cantonese
@@ -441,16 +476,16 @@ def record_test():
                 recognizer, mic, input_ctrl, max_seconds=None
             )
 
-            if audio_or_none is None:   # quit
+            if audio_or_none is None:
                 print("Exiting.")
                 break
-            if audio_or_none == "":     # no audio captured
+            if audio_or_none == "":
                 continue
 
             audio: sr.AudioData = audio_or_none  # type: ignore
 
             # --- OFFLINE STT (Vosk auto-select best model) ---
-            text, picked_lang = stt_vosk_auto(audio, vosk_model_dirs)
+            text, picked_lang = stt_vosk_auto(audio, vosk_model_dirs, debug=False)
             if not text:
                 print("[Vosk] Could not transcribe with installed models.")
                 continue
@@ -462,21 +497,14 @@ def record_test():
             print(f"[Detector] Language guess: {code}")
 
             # --- Compact CJK before translation for better results ---
-            def compact_cjk(t: str) -> str:
-                import re
-                CJK_RANGE = r"\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF"
-                t = re.sub(fr"(?<=[{CJK_RANGE}])\s+(?=[{CJK_RANGE}])", "", t)
-                t = re.sub(r"\s+([，。！？、“”‘’：；])", r"\1", t)
-                t = re.sub(r"([，。！？、“”‘’：；])\s+", r"\1", t)
-                return t
+            is_cjk_text = code.startswith("zh") or code.startswith("ja") or (picked_lang in {"zh", "yue", "ja"})
+            text_for_tx = compact_cjk(text) if is_cjk_text else text
 
-            text_for_tx = compact_cjk(text) if code.startswith("zh") or (picked_lang in {"zh", "yue"}) else text
-
-            # --- Translate to English (Argos, offline) ---
-            src_for_argos = "zh" if code.startswith("zh") or (picked_lang in {"zh", "yue"}) else code
+            # --- Normalize src for Argos & translate to English (offline) ---
+            src_for_argos = normalize_src_for_argos(code, picked_lang)
             if src_for_argos != "en":
                 try:
-                    ensure_model(src_for_argos, "en")
+                    ensure_model(src_for_argos, "en")  # auto-install ja→en / zh→en if missing
                     translated = translate_text(src_for_argos, "en", text_for_tx)
                     print("→ English:", translated)
                 except Exception as e:
@@ -490,7 +518,7 @@ def record_test():
 
 # -------------------- Entry --------------------
 if __name__ == "__main__":
-    # Optional: preinstall common pairs once (uncomment if you want to force install)
+    # Optional: preinstall common pairs once
     # install("zh", "en")
-    # install("es", "en")
+    # install("ja", "en")
     record_test()
