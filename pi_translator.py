@@ -418,7 +418,7 @@ def record_test():
 
     # Model folders relative to project root (adjust if your names differ)
     vosk_model_dirs = {
-        "zh": str(PROJECT_ROOT / "vosk-models" / "vosk-model-small-zh-cn-0.22"),
+        "zh": str(PROJECT_ROOT / "vosk-models" / "vosk-model-small-cn-0.22"),
         "en": str(PROJECT_ROOT / "vosk-models" / "vosk-model-small-en-us-0.15"),
         # "yue": str(PROJECT_ROOT / "vosk-models" / "vosk-model-small-yue-<ver>"),  # optional Cantonese
     }
