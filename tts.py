@@ -15,7 +15,7 @@ VOICE_HINTS: Dict[str, Dict[str, str]] = {
     "es": {"win": "Helena",           "mac": "Monica",    "lin": "es"},
     "fr": {"win": "Hortense",         "mac": "Amelie",    "lin": "fr"},
     "de": {"win": "Hedda",            "mac": "Anna",      "lin": "de"},
-    "ja": {"win": "Haruka",           "mac": "Kyoko",     "lin": "jpx/ja"},
+    "ja": {"win": "Haruka",           "mac": "Kyoko",     "lin": "ja"},
     "pt": {"win": "Maria",            "mac": "Joana",     "lin": "pt"},
     "it": {"win": "Elsa",             "mac": "Alice",     "lin": "it"},
     "ru": {"win": "Irina",            "mac": "Milena",    "lin": "ru"},
@@ -78,11 +78,6 @@ def list_pyttsx3_voices() -> List[VoiceInfo]:
         return []
 
 def _match_voice(lang: str) -> Optional[str]:
-    """
-    Try to pick the best pyttsx3 voice ID for a language.
-    1) by preferred name substring (VOICE_HINTS)
-    2) by voice 'languages' metadata containing the lang code
-    """
     voices = list_pyttsx3_voices()
     want_name = None
     system = platform.system()
@@ -90,36 +85,39 @@ def _match_voice(lang: str) -> Optional[str]:
         want_name = VOICE_HINTS.get(lang, {}).get("win")
     elif system == "Darwin":
         want_name = VOICE_HINTS.get(lang, {}).get("mac")
+    elif system == "Linux":
+        # NEW: if we have an explicit Linux voice id (e.g., 'sit/cmn'), use it
+        vtag = VOICE_HINTS.get(lang, {}).get("lin")
+        if vtag:
+            return vtag
 
-    # 1) name substring match
+    # 1) name substring match (Win/Mac)
     if want_name:
         for v in voices:
             if want_name.lower() in v.name.lower():
                 return v.id
 
-    # 2) metadata language match (best-effort)
+    # 2) metadata language match
     for v in voices:
         for meta in v.languages:
             m = meta.lower()
             if lang.lower() in m or m.endswith(lang.lower()) or m.startswith(lang.lower()):
                 return v.id
 
-    # 3) give up
     return None
 
 # -----------------------------
 # Backends
 # -----------------------------
 def _backend_pyttsx3(text: str, lang: str) -> Tuple[bool, str]:
-    """pyttsx3 backend; returns (success, detail)."""
     try:
         eng = _init_engine()
         voice_id = _match_voice(lang)
-        if voice_id:
-            eng.setProperty("voice", voice_id)
-            detail = f"pyttsx3 voice='{voice_id}'"
-        else:
-            detail = "pyttsx3 default voice"
+        if not voice_id:
+            # IMPORTANT: do NOT speak with default voice; let caller try other backends
+            return False, f"pyttsx3: no matching voice for '{lang}'"
+        eng.setProperty("voice", voice_id)
+        detail = f"pyttsx3 voice='{voice_id}'"
         eng.say(text)
         eng.runAndWait()
         return True, detail
