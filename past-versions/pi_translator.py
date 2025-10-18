@@ -293,8 +293,6 @@ def normalize_src_for_argos(code: str, picked_lang: Optional[str]) -> str:
     code = (code or "").lower()
     picked = (picked_lang or "").lower()
 
-    if picked in {"yue"} or code.startswith("yue"):
-        return "zh"
     if code.startswith("zh") or picked in {"zh"}:
         return "zh"
     if code.startswith("ja") or picked in {"ja"}:
@@ -502,15 +500,25 @@ def record_test():
 
             # --- Normalize src for Argos & translate to English (offline) ---
             src_for_argos = normalize_src_for_argos(code, picked_lang)
-            if src_for_argos != "en":
+
+            # Decide target: zh -> en, en -> zh
+            if src_for_argos.startswith("zh"):
+                tgt_for_argos = "en"
+            elif src_for_argos == "en":
+                tgt_for_argos = "zh"
+            else:
+                tgt_for_argos = None  # other languages: no translation
+
+            if tgt_for_argos:
                 try:
-                    ensure_model(src_for_argos, "en")  # auto-install ja→en / zh→en if missing
-                    translated = translate_text(src_for_argos, "en", text_for_tx)
-                    print("→ English:", translated)
+                    ensure_model(src_for_argos, tgt_for_argos)  # auto-install zh<->en as needed
+                    translated = translate_text(src_for_argos, tgt_for_argos, text_for_tx)
+                    lang_label = "English" if tgt_for_argos == "en" else "Chinese"
+                    print(f"→ {lang_label}:", translated)
                 except Exception as e:
                     print("Translate error:", e)
             else:
-                print("→ English:", text_for_tx)
+                print("→", text_for_tx)
 
     finally:
         input_ctrl.stop()
@@ -520,5 +528,5 @@ def record_test():
 if __name__ == "__main__":
     # Optional: preinstall common pairs once
     # install("zh", "en")
-    # install("ja", "en")
+    # install("en", "zh")
     record_test()
