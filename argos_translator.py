@@ -7,9 +7,8 @@ from pathlib import Path
 
 # ----- FORCE ARGOS DATA DIR (your path) -----
 # pi version of the argos data directory
-DEFAULT_ARGOS_DIR = Path(r"/home/khoo0050/Documents/translator-project/argos-data")
-if not os.environ.get("ARGOS_PACKAGES_DIR"):
-    os.environ["ARGOS_PACKAGES_DIR"] = str(DEFAULT_ARGOS_DIR)
+PROJECT_ROOT = Path(__file__).resolve().parent
+os.environ["ARGOS_PACKAGES_DIR"] = str(PROJECT_ROOT / "argos-data")
 
 BRIDGE_LANG = "en"  # bridge language for 2-hop translation
 

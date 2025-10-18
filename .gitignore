@@ -19,6 +19,8 @@ pip-wheel-metadata/
 *.spec
 argos-data/*
 vosk-models/*
+argos-data.zip
+vosk-models.zip
 
 # --- Virtual environments ---
 venv/
