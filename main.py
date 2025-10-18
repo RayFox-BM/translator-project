@@ -46,19 +46,6 @@ DIGIT_TO_LANG = {
     "5": "ja", "6": "pt", "7": "it", "8": "ru", "9": "ko",
 }
 
-GOOGLE_HINT = {
-    "en": "en-US",   # English (United States)
-    "zh": "zh-CN",   # Chinese (Simplified)
-    "es": "es-ES",   # Spanish (Spain)
-    "fr": "fr-FR",   # French (France)
-    "de": "de-DE",   # German (Germany)
-    "ja": "ja-JP",   # Japanese (Japan)
-    "pt": "pt-PT",   # Portuguese (Portugal)
-    "it": "it-IT",   # Italian (Italy)
-    "ru": "ru-RU",   # Russian (Russia)
-    "ko": "ko-KR",   # Korean (South Korea)
-}
-
 USE_ENSURE_ARGOS_PAIR = False
 
 # ---------- optional deps ----------
@@ -121,21 +108,6 @@ class STT:
                 return text
             except Exception as e:
                 print(f"[STT] Vosk parse error: {e}")
-
-        # Google fallback
-        if not _SR:
-            print("[STT] No SpeechRecognition installed.")
-            return ""
-        r = sr.Recognizer()
-        ad = sr.AudioData(audio_16k.tobytes(), 16000, 2)
-        hint = GOOGLE_HINT.get(source_lang or "en", "en-US")
-        try:
-            text = r.recognize_google(ad, language=hint)
-            print(f"[STT] Google transcription ({hint}): {text}")
-            return text
-        except Exception as e:
-            print(f"[STT] Google STT error: {e}")
-            return ""
 
 # ---------- controller state ----------
 class State:
