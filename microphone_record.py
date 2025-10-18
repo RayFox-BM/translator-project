@@ -42,17 +42,8 @@ class MicrophoneRecorder:
         self._sr_in = cfg.desired_rate
 
     def _callback(self, indata, frames, time_info, status):
-        if status:
-            print(f"[MIC] status: {status}")
         if self._recording:
             self._q.put(indata.copy())
-
-            if self.cfg.print_levels:
-                # simple RMS meter
-                x = indata.astype(np.float32).flatten()
-                rms = math.sqrt(np.mean(x * x) + 1e-12)
-                db = 20 * math.log10(rms + 1e-12)
-                print(f"[MIC] level: {db:6.1f} dBFS")
 
     def _open_stream(self):
         # Probe device samplerate if none is specified or desired rate fails

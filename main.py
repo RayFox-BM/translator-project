@@ -94,20 +94,39 @@ class STT:
             return False
 
     def transcribe(self, audio_16k, source_lang: str | None) -> str:
-        # Use Vosk when we have a model for selected source_lang
-        if _VOSK and source_lang and self._current_lang != source_lang:
-            self._load_vosk(source_lang)
+        if not _VOSK:
+            print("[STT] Vosk not available — pip install vosk")
+            return ""
 
-        if self._rec is not None:
+        # (Re)load model for requested language
+        if source_lang and self._current_lang != source_lang:
+            ok = self._load_vosk(source_lang)
+            if not ok:
+                print(f"[STT] Could not load Vosk model for '{source_lang}'")
+                return ""
+
+        if self._rec is None:
+            print(f"[STT] No recognizer (missing model for '{source_lang}')")
+            return ""
+
+        try:
             self._rec.Reset()
-            self._rec.AcceptWaveform(audio_16k.tobytes())
-            try:
-                res = json.loads(self._rec.Result())
-                text = (res.get("text") or "").strip()
-                print(f"[STT] Vosk transcription ({source_lang}): {text}")
-                return text
-            except Exception as e:
-                print(f"[STT] Vosk parse error: {e}")
+
+            # Stream in ~0.5s chunks (8k samples @16kHz, 16-bit mono)
+            CHUNK = 8000
+            buf = audio_16k.astype("int16")
+            for i in range(0, len(buf), CHUNK):
+                frame = buf[i:i+CHUNK]
+                self._rec.AcceptWaveform(frame.tobytes())
+
+            # IMPORTANT: use FinalResult() at the end
+            res = json.loads(self._rec.FinalResult())
+            text = (res.get("text") or "").strip()
+            print(f"[STT] Vosk transcription ({source_lang}): {text}")
+            return text
+        except Exception as e:
+            print(f"[STT] Vosk error: {e}")
+            return ""
 
 # ---------- controller state ----------
 class State:
