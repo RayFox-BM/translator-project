@@ -11,11 +11,11 @@ from typing import Dict, List, Optional, Tuple
 # -----------------------------
 VOICE_HINTS: Dict[str, Dict[str, str]] = {
     "en": {"win": "Microsoft Zira",   "mac": "Samantha",  "lin": "en"},
-    "zh": {"win": "Microsift Huihui", "mac": "Ting-Ting", "lin": "cmn"},
+    "zh": {"win": "Microsift Huihui", "mac": "Ting-Ting", "lin": "sit/cmn"},
     "es": {"win": "Helena",           "mac": "Monica",    "lin": "es"},
     "fr": {"win": "Hortense",         "mac": "Amelie",    "lin": "fr"},
     "de": {"win": "Hedda",            "mac": "Anna",      "lin": "de"},
-    "ja": {"win": "Haruka",           "mac": "Kyoko",     "lin": "ja"},
+    "ja": {"win": "Haruka",           "mac": "Kyoko",     "lin": "jpx/ja"},
     "pt": {"win": "Maria",            "mac": "Joana",     "lin": "pt"},
     "it": {"win": "Elsa",             "mac": "Alice",     "lin": "it"},
     "ru": {"win": "Irina",            "mac": "Milena",    "lin": "ru"},
