@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 # -----------------------------
 VOICE_HINTS: Dict[str, Dict[str, str]] = {
     "en": {"win": "Microsoft Zira",   "mac": "Samantha",  "lin": "en"},
-    "zh": {"win": "Microsift Huihui", "mac": "Ting-Ting", "lin": "zh"},
+    "zh": {"win": "Microsift Huihui", "mac": "Ting-Ting", "lin": "cmn"},
     "es": {"win": "Helena",           "mac": "Monica",    "lin": "es"},
     "fr": {"win": "Hortense",         "mac": "Amelie",    "lin": "fr"},
     "de": {"win": "Hedda",            "mac": "Anna",      "lin": "de"},
