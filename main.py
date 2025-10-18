@@ -13,7 +13,6 @@ from keyboard_input import KeyboardInput, KeyboardCallbacks
 from microphone_record import MicrophoneRecorder
 from argos_translator import translate_text
 # If installing Argos packages manually, you can disable ensure_pair below.
-from argos_installer import ensure_pair
 from tts import speak  # language-aware TTS
 
 # ---------- config ----------

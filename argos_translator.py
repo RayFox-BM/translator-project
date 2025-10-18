@@ -6,11 +6,8 @@ import os
 from pathlib import Path
 
 # ----- FORCE ARGOS DATA DIR (your path) -----
-# If you ever want to override at runtime, set the env var before import and
-# this code will respect it:
-#   $env:ARGOS_PACKAGES_DIR="C:\path\to\argos-data"   (PowerShell)
-#   export ARGOS_PACKAGES_DIR="/path/to/argos-data"   (bash)
-DEFAULT_ARGOS_DIR = Path(r"C:\Users\owobo\Documents\translator-project\argos-data")
+# pi version of the argos data directory
+DEFAULT_ARGOS_DIR = Path(r"/home/khoo0050/Documents/translator-project/argos-data")
 if not os.environ.get("ARGOS_PACKAGES_DIR"):
     os.environ["ARGOS_PACKAGES_DIR"] = str(DEFAULT_ARGOS_DIR)
 
