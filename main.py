@@ -19,7 +19,7 @@ else:
     # desktop: use pynput backend
     from keyboard_input import KeyboardInput, KeyboardCallbacks
 
-from microphone_record import MicrophoneRecorder
+from microphone_record import MicrophoneRecorder, MicConfig
 from argos_translator import translate_text
 # If installing Argos packages manually, you can disable ensure_pair below.
 from tts import speak  # language-aware TTS
@@ -152,7 +152,7 @@ class State:
 # ---------- wire everything ----------
 def main():
     stt = STT()
-    mic = MicrophoneRecorder()
+    mic = MicrophoneRecorder(MicConfig(device=4))
     state = State()
 
     def on_digit(d):
