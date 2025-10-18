@@ -151,7 +151,7 @@ def _backend_pyttsx3(text: str, lang: str) -> Tuple[bool, str]:
             # IMPORTANT: do NOT speak with default voice; let caller try other backends
             return False, f"pyttsx3: no matching voice for '{lang}'"
         eng.setProperty("voice", voice_id)
-        eng.setProperty("rate", 120) 
+        eng.setProperty("rate", 150) 
         detail = f"pyttsx3 voice='{voice_id}'"
         eng.say(text)
         eng.runAndWait()
