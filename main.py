@@ -9,7 +9,16 @@ os.environ["ARGOS_PACKAGES_DIR"] = str(PROJECT_ROOT / "argos-data")
 
 
 # ---- local modules ----
-from keyboard_input import KeyboardInput, KeyboardCallbacks
+import platform
+USE_X = bool(os.environ.get("DISPLAY"))
+
+if platform.system() == "Linux" and not USE_X:
+    # headless: use evdev backend
+    from keyboard_input_evdev import KeyboardInput, KeyboardCallbacks
+else:
+    # desktop: use pynput backend
+    from keyboard_input import KeyboardInput, KeyboardCallbacks
+
 from microphone_record import MicrophoneRecorder
 from argos_translator import translate_text
 # If installing Argos packages manually, you can disable ensure_pair below.
