@@ -9,6 +9,40 @@ from typing import Dict, List, Optional, Tuple
 # -----------------------------
 # Configurable voice preferences
 # -----------------------------
+
+try:
+    from fugashi import Tagger
+    _JA_TAGGER = Tagger()  # uses unidic-lite bundled dict
+except Exception:
+    _JA_TAGGER = None
+
+def _ja_to_kana_mecab(text: str) -> str:
+    if _JA_TAGGER is None:
+        return text
+    kana_chunks = []
+    for token in _JA_TAGGER(text):
+        # unidic-lite exposes .feature.kana or .feature.pron depending version
+        kana = getattr(token.feature, "pron", None) or getattr(token.feature, "kana", None)
+        kana_chunks.append(kana or token.surface)
+    return "".join(kana_chunks)
+
+try:
+    from pykakasi import kakasi as _kakasi_cls
+    _KAKASI = _kakasi_cls()
+    _KAKASI.setMode("J", "H")  # Kanji -> Hiragana
+    _KAKASI.setMode("K", "H")  # Katakana -> Hiragana (normalize)
+    _KAKASI.setMode("H", "H")  # Hiragana stays Hiragana
+    _JA_CONVERTER = _KAKASI.getConverter()
+except Exception:
+    _JA_CONVERTER = None
+
+def _ja_to_kana(text: str) -> str:
+    if _JA_TAGGER is not None:
+        return _ja_to_kana_mecab(text)
+    if _JA_CONVERTER is not None:
+        return _JA_CONVERTER.do(text)
+    return text
+
 VOICE_HINTS: Dict[str, Dict[str, str]] = {
     "en": {"win": "Microsoft Zira",   "mac": "Samantha",  "lin": "en"},
     "zh": {"win": "Microsift Huihui", "mac": "Ting-Ting", "lin": "sit/cmn"},
@@ -159,6 +193,8 @@ def speak(text: str, lang: str = "en", also_print: bool = True) -> None:
     """Speak text in the given language with robust fallbacks and diagnostics."""
     if not text:
         return
+    if lang == "ja":
+        text = _ja_to_kana(text)
     if also_print:
         print(f"[SPEAK:{lang}] {text}")
 
